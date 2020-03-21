@@ -1,115 +1,64 @@
 # NeLivePushServer 直播推流服务器搭建
 
 ## 一、环境准备
-### 1.1 shell命令
-shell可执行文件必须以`#!/bin/bash`开头
+* 下载 [Nginx](http://nginx.org/en/download.html)： `wget http://nginx.org/download/nginx-1.16.0.tar.gz`  
+* 解压Nginx：`tar -zxvf nginx-1.16.0.tar.gz`  
+* 下载 [Nginx RTMP](https://github.com/arut/nginx-rtmp-module) 模块：`wget https://github.com/arut/nginx-rtmp-module/archive/v1.2.1.tar.gz`  
+* 解压Nginx RTMP模块：`tar -zxvf v1.2.1.tar.gz`  
+
+## 二、编译安装
+### 2.1 正常步骤
+ * 进入Nginx解压目录：`cd nginx-1.16.0`  
+ * 将help输出text方便查看：`./configure --help > nginx_configure_help.txt`  
+ * 执行configure：`./configure --prefix=./bin --add-module=../nginx-rtmp-module-1.2.1`  
+ * 执行完毕后生成Makefile文件，编译：`make install`  
+ * 编译完生成bin目录  
+ ```bash
+$ ls
+auto  bin  CHANGES  CHANGES.ru  conf  configure  contrib  html  LICENSE  Makefile  man  objs  README  src
+$ cd bin/
+$ ls
+conf  html  logs  sbin
+ ```
+
+> Conf：配置相关  
+> html：欢迎页面、错误页面  
+>  logs：日志存放区  
+> sbin：可执行文件存放区  
+
+### 2.2 异常
+> nginx中gzip模块需要zlib库，rewrite模块需要pcre库，ssl功能需要openssl库。所以如果服务器为安装这三个依赖库的话会报错，需要先安装着三个依赖库。  
+
+本文所用的是阿里云服务器，初始环境，出现如下异常：
+#### 2.2.1 缺少`pcre`库
+安装[pcre](https://www.pcre.org/)步骤：  
+* 下载：`wget https://ftp.pcre.org/pub/pcre/pcre-8.13.tar.gz`  
+* 解压缩：`tar -zxvf pcre-8.13.tar.gz`  
+* 进入目录：`cd pcre-8.13.tar.gz`  
+* 运行configure：`./configure --enable-utf8`  
+* 执行make命令：`make && make install`  
+
+**问题** 
+继续报错：
 ```bash
-# 该方式不需要权限
-/bin/bash demo.sh
-# 该方式需要权限
-chmod 777 demo.sh
-./demo.sh 
-```
-实操：  
-![image](https://github.com/tianyalu/NeShellVariable/blob/master/show/bin_bash.png)
-
-
-
-<img src="/Users/tian/Library/Application Support/typora-user-images/image-20200316154829274.png" alt="image-20200316154829274" style="zoom:50%;" />
-
-1.2
-
- 
-
-
-
-### 1.2 Android.mk基本格式
-以下是一个简单的Android.mk文件的内容:
-```linux
-# 定义模块当前路径（必须定义在文件开头，只需要定义一次）
-LOCAL_PATH := $(call my-dir)
-
-# 清空当前环境变量（LOCAL_PATH除外）
-include $(CLEAR_VARS)
-
-# 当前模块名（这里会生成libhello-jni.so）
-LOCAL_MODULE := hello-jni.c
-
-# 当前模块包含的源代码文件
-LOCAL_SRC_FILES := hello-jni.c
-
-# 表示当前模块将被编译成一个共享库
-include $(BUILD_SHARED_LIBRARY)
+make[1]: *** [Makefile:888: pcrecpp.lo] Error 1
+make[1]: Leaving directory '/root/software/pcre-8.13'
 ```
 
-### 1.3 编译多个共享库
-一个Android.mk可能编译产生多个共享库模块。这里会产生libmodule1.so和libmodule2.so两个动态库
-```linux
-LOCAL_PATH := $(call my-dir)
+搜索说是没有安装`gcc-cc++`库，安装即可：`yum -y install gcc-c++`  
 
-# 模块1
-include $(CLEAR_VARS)
-LOCAL_MODULE := module1
-LOCAL_SRC_FILES := module1.c
-include $(BUILD_SHARED_LIBRARY)
+#### 2.2.2 缺少`ssl module`
 
-# 模块2
-include $(CLEAR_VARS)
-LOCAL_MODULE := module2
-LOCAL_SRC_FILES := module2.c
-include $(BUILD_SHARDE_LIBRARY)
+```bas
+./configure: error: SSL modules require the OpenSSL library.
 ```
 
-### 1.4 编译静态库
-虽然Android应用程序不能直接使用静态库，静态库可以用来编译动态库。比如将第三方代码添加到原生项目中时，可以不用直接将第三方源码包括在原生项目中，而是将第三方源码编译成静态库，然后并入共享库。
-```linux
-LOCAL_PATH := $(call my-dir)
+安装ssl module步骤：  
 
-# 第三方AVI库
-include $(CLEAR_VARS)
-LOCAL_MODULE := avilib
-LOCAL_SRC_FILES := avilib.c platform_posix.c
-include $(BUILD_STATIC_LIBRARY)
 
-# 原生模块
-include $(CLEAR_VARS)
-LOCAL_MODULE := module
-LOCAL_SRC_FILES := module.c
-# 将静态库模块名添加到LOCAL_STATIC_LIBRARIES变量
-LOCAL_STATIC_LIBRARIES := avilib
-include $(BUILD_SHARED_LIBRARY)
-```
 
-### 1.5 使用共享库共享通用模块
-静态库可以保证源代码模块化，但是当静态库与共享库相连时，它就变成了共享库的一部分。在多个共享库的情况下，多个共享库与静态库连接时，需要将通用模块的多个副本与不同的共享库重复相连，这样就增加了APP的大小。这种情况，可以将通用模块作为共享库。
-```linux
-LOCAL_PATH := $(call my-dir)
 
-# 第三方AVI库
-include $(CLEAR_VARS)
-LOCAL_MODULE := avilib
-LOCAL_SRC_FILES := avilib.c platform_posix.c
-include $(BUILD_SHARED_LIBRARY)
 
-# 原生模块1
-include $(CLEAR_VARS)
-LOCAL_MODULE := module1
-LOCAL_SRC_FILES := module1.c
-LOCAL_SHARED_LIBRARIES := avilib
-include $(BUILD_SHARED_LIBRARY)
 
-# 原生模块2
-include $(CLEAR_VARS)
-LOCAL_MODULE := module2
-LOCAL_SRC_FILES := module2.c
-LOCAL_SHARED_LIBRARIES := avilib
-include $(BUILD_SHARED_LIBRARY)
-```
-
-### 1.6 在多个NDK项目间共享模块
-> 首先将avilib作为
->
->
-
-![image](https://github.com/tianyalu/NeMakefile/blob/master/show/make_file_fun_param.png)  
+参考：[直播推流服务器端搭建](https://www.jianshu.com/p/cf7f0552ffe9)
 
