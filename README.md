@@ -24,7 +24,7 @@ conf  html  logs  sbin
 
 > Conf：配置相关  
 > html：欢迎页面、错误页面  
->  logs：日志存放区  
+> logs：日志存放区  
 > sbin：可执行文件存放区  
 
 ### 2.2 异常
@@ -33,44 +33,28 @@ conf  html  logs  sbin
 本文所用的是阿里云服务器，初始环境，出现如下异常：
 #### 2.2.1 缺少`pcre`库
 安装 [pcre](https://www.pcre.org/) 步骤：  
-* 下载：`wget https://ftp.pcre.org/pub/pcre/pcre-8.13.tar.gz`  
-* 解压缩：`tar -zxvf pcre-8.13.tar.gz`  
-* 进入目录：`cd pcre-8.13`  
+* 下载：`wget https://netix.dl.sourceforge.net/project/pcre/pcre/8.40/pcre-8.40.tar.gz`  
+* 解压缩：`tar -zxvf pcre-8.40.tar.gz`  
+* 进入目录：`cd pcre-8.40  
 * 运行configure：`./configure --enable-utf8`  
 * 执行make命令：`make && make install`   
 
-**问题1** 
-继续报错：  
+**继续报错：** 
 ```bash
-make[1]: *** [Makefile:888: pcrecpp.lo] Error 1
-make[1]: Leaving directory '/root/software/pcre-8.13'
+configure: error: You need a C++ compiler for C++ support.
 ```
-**解决方案**  
-搜索说是没有安装`gcc-cc++`库，安装即可：`yum -y install gcc-c++`  
+**解决方案:**  
+没有安装`gcc-cc++`库，安装即可：`yum -y install gcc-c++`   
 
-**~~问题2~~**  
-检查`pcre`是否安装：`rpm -qa | grep pcre` 
-报错信息如下：  
-```bash
-grep: error while loading shared libraries: libpcre.so.1: cannot open shared object file: No such file or directory
-```
-尝试解决方案：  
-查看`libpcre.so`目录：`find / -name libpcre.so.*`  
-```bash
-/root/software/pcre-8.13/.libs/libpcre.so.0.0.1
-/root/software/pcre-8.13/.libs/libpcre.so.0
-/usr/local/lib/libpcre.so.0
-/usr/local/lib/libpcre.so.0.0.1
-```
-尝试建立软链接：  
-```bash
-[root@iZwz9ci7skvj0jj2sfdmqgZ nginx-1.16.0]# ln -s /usr/local/lib/libpcre.so.0.0.1 /lib64/libpcre.so.1
-```
-结果报错如下：  
-```bash
-grep: symbol lookup error: grep: undefined symbol: pcre_jit_stack_alloc
-```
-网上到处搜索无果，而且发现这个问题2貌似不影响后面的操作，暂且先搁置。  
+* 检查`pcre`是否安装：`rpm -qa | grep pcre` 
+
+  ```bash
+  [root@iZwz9ci7skvj0jj2sfdmqgZ pcre-8.40]# rpm -qa | grep pcre
+  pcre2-10.32-1.el8.x86_64
+  pcre-8.42-4.el8.x86_64
+  ```
+
+此时表明安装成功。
 
 #### 2.2.2 缺少`ssl module`
 报错信息如下：  
@@ -105,6 +89,7 @@ cd objs
 ```bash
 CFLAGS =  -pipe  -O -W -Wall -Wpointer-arith -Wno-unused-parameter -Werror -g　
 ```
+**注意：** 此时无需再执行Nginx `configure` 步骤，直接执行 Nginx `make install`步骤即可。
 
 ## 三、修改配置
 Nginx默认不支持rtmp，需要修改配置文件。  
@@ -170,22 +155,16 @@ http {
 ```
 > -t 表示测试  
 
-### 4.1 报错信息1
-```bash
-./nginx: error while loading shared libraries: libpcre.so.0: cannot open shared object file: No such file or directory
-```
-**解决方法：**    
-建立软链接：`ln -s /usr/local/lib/libpcre.so.0 /lib64/`
+**报错信息如下：**    
 
-### 4.2 报错信息2
-继续测试，又出现如下报错信息
 ```bash
 nginx: [alert] could not open error log file: open() "./bin/logs/error.log" failed (2: No such file or directory)
 2020/03/25 16:23:13 [emerg] 22997#0: open() "./bin/conf/nginx.conf" failed (2: No such file or directory)
 nginx: configuration file ./bin/conf/nginx.conf test failed
 ```
 仔细看错误说明，`./bin/logs/error.log` 找不到，也就是当前目录下早不到`bin/logs/error.log`。  因为我们执行的当前目录是sbin，里面只有可执行文件`nginx`，所以找不到。  
-**解决方法：**   
+
+**解决方法：**  
 到`Nginx`根目录下执行：  
 ```bash
 [root@iZwz9ci7skvj0jj2sfdmqgZ sbin]# cd ../../
@@ -195,5 +174,63 @@ auto  bin  CHANGES  CHANGES.ru  conf  configure  contrib  html  LICENSE  Makefil
 nginx: the configuration file ./bin/conf/nginx.conf syntax is ok
 nginx: configuration file ./bin/conf/nginx.conf test is successful
 ```
+
+此时表明测试成功，可以正式执行，启动服务了：  
+```bash
+[root@iZwz9ci7skvj0jj2sfdmqgZ nginx-1.16.0]# ./bin/sbin/nginx
+```
+
+查看Nginx服务进程：  
+```bash
+[root@iZwz9ci7skvj0jj2sfdmqgZ nginx-1.16.0]# ps aux | grep nginx
+root     18451  0.0  0.2  48200  4992 ?        Ss   18:31   0:00 nginx: master process ./bin/sbin/nginx
+nobody   18452  0.0  0.4  81276  8624 ?        S    18:31   0:00 nginx: worker process
+root     18487  0.0  0.0  12112   964 pts/0    R+   18:31   0:00 grep --color=auto nginx
+```
+此时表明服务启动成功。  
+
+## 五、测试服务
+在浏览器中通过HTTP来访问：`http://47.115.6.127:8080`  
+> 报错：403 Forbidden 
+> 其实前面我们查看nginx进程的时候，可以发现master process和worker process的用户不一致，一个是root ，而另一个是nobody  
+
+重新修改`bin/conf/nginx.conf`文件，添加`root`用户：  
+```bash
+#设置未root用户
+user root;
+worker_processes 1;
+error_log logs/error.log debug;
+```
+
+配置文件改好了，需要重新加载配置文件：  
+```bash
+./bin/sbin/nginx -s reload
+```
+刷新浏览器就正常了。  
+
+## 六、停止服务
+* 从容停止服务
+```bash 
+./bin/sbin/nginx -s quit
+```
+这种方式较`stop`相比就比较温和一些了，需要进程完成当前工作后再停止。  
+* 立即停止服务
+```bash 
+./bin/sbin/nginx -s stop
+```
+这种方式较强硬，无论进程是否在工作，都直接停止进程。  
+* 杀死进程
+```bash
+pkill -9 nginx
+```
+
+## 七、直播推流测试
+* 推流可以使用EV录屏    
+> 设置串流地址： `rtmp://xxx.xxx.xxx/mapp`  
+
+* 播放可以使用EV播放器  
+> 播放网络流地址：`rtmp://xxx.xxx.xxx/myapp`  
+
+
 参考：[直播推流服务器端搭建](https://www.jianshu.com/p/cf7f0552ffe9)
 
