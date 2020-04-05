@@ -1,6 +1,10 @@
 # NeLivePushServer 直播推流服务器搭建
 
+[TOC]  
+
+
 ## 一、环境准备
+
 * 下载 [Nginx](http://nginx.org/en/download.html)： `wget http://nginx.org/download/nginx-1.16.0.tar.gz`  
 * 解压Nginx：`tar -zxvf nginx-1.16.0.tar.gz`  
 * 下载 [Nginx RTMP](https://github.com/arut/nginx-rtmp-module) 模块：`wget https://github.com/arut/nginx-rtmp-module/archive/v1.2.1.tar.gz`  
@@ -117,7 +121,7 @@ rtmp {
 http {
     server {
         #注意端口占用
-        listen      8080;
+        listen      80;
         #数据统计模块，将流媒体的状态记录到 stat.xsl 中
         location /stat {
             rtmp_stat all;
@@ -190,7 +194,20 @@ root     18487  0.0  0.0  12112   964 pts/0    R+   18:31   0:00 grep --color=au
 此时表明服务启动成功。  
 
 ## 五、测试服务
-在浏览器中通过HTTP来访问：`http://47.115.6.127:8080`  
+在浏览器中通过HTTP来访问：`http://47.115.6.127:80`    
+
+结果连接超时，并没有达到预期的效果，原因在于阿里云服务器没有开放指定端口。
+
+**解决方法：**  
+
+进入阿里云控制台 --> 网络与安全 --> 安全组 --> 配置规则 --> 添加安全组规则 ，开放1935和80端口。  
+
+![image](https://github.com/tianyalu/NeLivePushServer/raw/master/show/ali_cloud_server_port_setting.png)  
+
+注意：配置完成之后一定要重启服务器，才能生效。  
+
+刷新浏览器之后，报错如下：
+
 > 报错：403 Forbidden 
 > 其实前面我们查看nginx进程的时候，可以发现master process和worker process的用户不一致，一个是root ，而另一个是nobody  
 
@@ -206,7 +223,13 @@ error_log logs/error.log debug;
 ```bash
 ./bin/sbin/nginx -s reload
 ```
-刷新浏览器就正常了。  
+然后重新刷新浏览器就可以正常访问了，如下图所示：  
+
+![image](https://github.com/tianyalu/NeLivePushServer/raw/master/show/nginx_server_connect_success.png) 
+
+可以在浏览器中输入`http://47.115.6.127/stat` 查看Nginx服务器状态：  
+
+![image](https://github.com/tianyalu/NeLivePushServer/raw/master/show/nginx_server_state.png) 
 
 ## 六、停止服务
 * 从容停止服务
@@ -225,12 +248,15 @@ pkill -9 nginx
 ```
 
 ## 七、直播推流测试
-* 推流可以使用EV录屏    
-> 设置串流地址： `rtmp://xxx.xxx.xxx/mapp`  
+* 推流可以使用EV录屏（无需加端口号了）    
+> 设置串流地址： `rtmp://47.115.6.127/mapp`  
 
 * 播放可以使用EV播放器  
-> 播放网络流地址：`rtmp://xxx.xxx.xxx/myapp`  
+> 播放网络流地址：`rtmp://47.115.6.127/myapp`    
 
+* 播放也可以用命令行通过FFmpeg播放    
+
+> ffplay -i  rtmp://47.115.6.127/myapp    
 
 参考：[直播推流服务器端搭建](https://www.jianshu.com/p/cf7f0552ffe9)
 
